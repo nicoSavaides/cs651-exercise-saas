@@ -1,0 +1,175 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Google Cloud Vision Image Analyzer</title>
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      font-family: Arial, sans-serif;
+      background: #f3f6fb;
+      color: #243247;
+      margin: 0;
+      padding: 40px 16px;
+    }
+
+    .container {
+      max-width: 650px;
+      margin: auto;
+      background: white;
+      padding: 35px;
+      border-radius: 15px;
+      box-shadow: 0 5px 25px rgba(0,0,0,0.08);
+      text-align: center;
+    }
+
+    h1 { color: #2563eb; }
+
+    p { color: #64748b; }
+
+    input {
+      margin: 20px 0;
+      max-width: 100%;
+    }
+
+    button {
+      background: #2563eb;
+      color: white;
+      border: none;
+      padding: 13px 25px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 16px;
+    }
+
+    button:disabled {
+      background: #94a3b8;
+      cursor: wait;
+    }
+
+    #preview {
+      display: none;
+      max-width: 100%;
+      max-height: 350px;
+      margin: 20px auto;
+      border-radius: 10px;
+    }
+
+    #results {
+      text-align: left;
+      margin-top: 25px;
+    }
+
+    .label {
+      display: flex;
+      justify-content: space-between;
+      padding: 12px;
+      margin: 8px 0;
+      background: #eff6ff;
+      border-radius: 8px;
+    }
+
+    #status { margin-top: 15px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Google Cloud Vision</h1>
+    <p>Upload an image to discover what Google's AI detects.</p>
+
+    <form id="uploadForm">
+      <input type="file" id="imageInput" accept="image/*" required>
+      <div>
+        <img id="preview" alt="Selected image preview">
+      </div>
+      <button type="submit" id="analyzeButton">Analyze Image</button>
+    </form>
+
+    <p id="status"></p>
+    <div id="results"></div>
+  </div>
+
+  <script>
+    const form = document.getElementById("uploadForm");
+    const input = document.getElementById("imageInput");
+    const preview = document.getElementById("preview");
+    const results = document.getElementById("results");
+    const status = document.getElementById("status");
+    const button = document.getElementById("analyzeButton");
+
+    input.addEventListener("change", () => {
+      results.innerHTML = "";
+      status.textContent = "";
+
+      const file = input.files[0];
+
+      if (file) {
+        preview.src = URL.createObjectURL(file);
+        preview.style.display = "block";
+      } else {
+        preview.style.display = "none";
+      }
+    });
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+
+      const file = input.files[0];
+      if (!file) return;
+
+      const formData = new FormData();
+      formData.append("image", file);
+
+      button.disabled = true;
+      status.textContent = "Analyzing image...";
+      results.innerHTML = "";
+
+      try {
+        const response = await fetch("/analyze", {
+          method: "POST",
+          body: formData
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || "Analysis failed.");
+        }
+
+        status.textContent = "Analysis complete!";
+
+        const heading = document.createElement("h2");
+        heading.textContent = "Detected Labels";
+        results.appendChild(heading);
+
+        if (data.labels.length === 0) {
+          const message = document.createElement("p");
+          message.textContent = "No labels detected.";
+          results.appendChild(message);
+        }
+
+        data.labels.forEach((label) => {
+          const row = document.createElement("div");
+          row.className = "label";
+
+          const name = document.createElement("span");
+          name.textContent = label.name;
+
+          const confidence = document.createElement("strong");
+          confidence.textContent = label.confidence + "%";
+
+          row.append(name, confidence);
+          results.appendChild(row);
+        });
+      } catch (error) {
+        status.textContent = "Error: " + error.message;
+      } finally {
+        button.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
